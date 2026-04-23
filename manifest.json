@@ -2,7 +2,7 @@
   "name": "E-COCO Recompensas",
   "short_name": "E-COCO",
   "description": "Sistema de recompensas por reciclaje de filtros de agua",
-  "start_url": "/",
+  "start_url": "/ecoco-app/",
   "display": "standalone",
   "background_color": "#EEF8FD",
   "theme_color": "#1097D1",

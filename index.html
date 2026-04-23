@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-COCO</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1097D1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="E-COCO">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue:      #1097D1;
+    --blue-dark: #0A7AB0;
+    --blue-light:#63C4EC;
+    --blue-pale: #D6F1FB;
+    --bg:        #EEF8FD;
+    --text:      #1A2B35;
+    --muted:     #8AAAB8;
+    --white:     #FFFFFF;
+    --border:    #DCF0FA;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 20px;
+  }
+
+  /* Background orbs */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -100px; right: -100px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, var(--blue-light) 0%, transparent 70%);
+    opacity: .25;
+    pointer-events: none;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -80px; left: -80px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, var(--blue) 0%, transparent 70%);
+    opacity: .12;
+    pointer-events: none;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 380px;
+    position: relative;
+    z-index: 1;
+    animation: fadeUp .5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* LOGO AREA */
+  .brand {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .brand-icon {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+    border-radius: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 32px rgba(16,151,209,.3);
+  }
+  .brand h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--blue);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .brand p {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  /* CARDS */
+  .cards { display: flex; flex-direction: column; gap: 14px; }
+
+  .card {
+    background: var(--white);
+    border-radius: 22px;
+    padding: 24px 22px;
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    transition: all .22s ease;
+    box-shadow: 0 2px 16px rgba(16,151,209,.07);
+    animation: fadeUp .5s ease both;
+  }
+  .card:nth-child(1) { animation-delay: .1s; }
+  .card:nth-child(2) { animation-delay: .2s; }
+
+  .card:hover {
+    border-color: var(--blue);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 32px rgba(16,151,209,.18);
+  }
+  .card:active { transform: translateY(0); }
+
+  .card-icon {
+    width: 58px; height: 58px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+  .card-icon.user  { background: var(--blue-pale); }
+  .card-icon.kiosk { background: #FEF3C7; }
+
+  .card-body { flex: 1; }
+  .card-body strong {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    color: var(--text);
+    font-weight: 800;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .card-body span {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+    display: block;
+  }
+
+  .card-arrow {
+    color: var(--blue-light);
+    font-size: 22px;
+    flex-shrink: 0;
+    transition: transform .2s;
+  }
+  .card:hover .card-arrow { transform: translateX(4px); color: var(--blue); }
+
+  /* DIVIDER */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* FOOTER */
+  .footer {
+    text-align: center;
+    margin-top: 36px;
+    font-size: 12px;
+    color: var(--muted);
+    animation: fadeUp .5s ease .3s both;
+  }
+  .footer strong { color: var(--blue); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="brand">
+    <div class="brand-icon">
+       <img src="fwplain.svg" alt="Descripción de mi icono" width="50" height="50"> 
+    </div>
+    <h1>E-COCO</h1>
+    <p>Sistema de recompensas<br>por reciclaje de filtros</p>
+  </div>
+
+  <div class="cards">
+    <!-- APP USUARIO -->
+    <a class="card" href="ecoco-app.html">
+      <div class="card-icon user">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round-icon lucide-user-round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+        </div>
+      <div class="card-body">
+        <strong>Soy cliente</strong>
+        <span>Acumula puntos y canjea recompensas por tus filtros reciclados</span>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>
+
+    <div class="divider">o</div>
+
+    <!-- KIOSKO -->
+    <a class="card" href="kiosko.html">
+      <div class="card-icon kiosk">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-castle-icon lucide-castle"><path d="M10 5V3"/><path d="M14 5V3"/><path d="M15 21v-3a3 3 0 0 0-6 0v3"/><path d="M18 3v8"/><path d="M18 5H6"/><path d="M22 11H2"/><path d="M22 9v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9"/><path d="M6 3v8"/></svg>
+      </div>
+      <div class="card-body">
+        <strong>Punto de venta</strong>
+        <span>Genera el código QR al recibir un filtro usado del cliente</span>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>
+  </div>
+
+  <div class="footer">
+    <strong>E-COCO</strong> © 2026
+  </div>
+</div>
+
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('✅ SW registrado:', reg.scope))
+        .catch(err => console.warn('SW error:', err));
+    });
+  }
+</script>
+
+</body>
+</html>

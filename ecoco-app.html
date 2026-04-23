@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-COCO — Sistema de Recompensas</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+  :root {
+    --blue:       #1097D1;
+    --blue-dark:  #0A7AB0;
+    --blue-light: #63C4EC;
+    --blue-pale:  #D6F1FB;
+    --blue-bg:    #EEF8FD;
+    --success:    #00C896;
+    --warning:    #FF6B35;
+    --white:      #FFFFFF;
+    --bg:         #F7FBFE;
+    --card:       #FFFFFF;
+    --text:       #1A2B35;
+    --muted:      #8AAAB8;
+    --border:     #DCF0FA;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  nav {
+    background: var(--white);
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: var(--blue); letter-spacing: -0.5px; }
+  .nav-pts { background: var(--blue-pale); color: var(--blue-dark); font-weight: 700; font-size: 13px; padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--blue-light); }
+
+  .screen { display: none; padding: 20px; animation: fadeIn .3s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+  /* HERO */
+  .hero { background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%); border-radius: 22px; padding: 28px 24px 26px; color: #fff; margin-bottom: 20px; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: -50px; right: -50px; width: 180px; height: 180px; background: var(--blue-light); border-radius: 50%; opacity: .18; }
+  .hero::after { content: ''; position: absolute; bottom: -30px; left: -20px; width: 120px; height: 120px; background: #fff; border-radius: 50%; opacity: .05; }
+  .hero-top { display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1; }
+  .hero-emoji { font-size: 40px; }
+  .hero-badge { background: rgba(255,255,255,.2); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
+  .hero h1 { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; margin-top: 12px; position: relative; z-index: 1; }
+  .hero p { font-size: 13px; opacity: .8; margin-top: 4px; position: relative; z-index: 1; }
+
+  /* POINTS CARD */
+  .points-card { background: var(--card); border-radius: 18px; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border: 1.5px solid var(--border); box-shadow: 0 2px 16px rgba(16,151,209,.08); }
+  .points-big { font-family: 'Syne', sans-serif; font-size: 44px; font-weight: 800; color: var(--blue); line-height: 1; }
+  .points-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .progress-wrap { flex: 1; margin-left: 18px; }
+  .progress-info { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+  .progress-bar { background: var(--blue-pale); border-radius: 8px; height: 9px; overflow: hidden; }
+  .progress-fill { background: linear-gradient(90deg, var(--blue-light), var(--blue)); height: 100%; border-radius: 8px; transition: width .6s ease; }
+  .progress-next { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .action-card { background: var(--card); border-radius: 16px; padding: 18px 14px; text-align: center; cursor: pointer; border: 1.5px solid var(--border); transition: all .2s; box-shadow: 0 2px 8px rgba(16,151,209,.06); }
+  .action-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16,151,209,.15); }
+  .action-card .icon { font-size: 30px; margin-bottom: 8px; }
+  .action-card strong { display: block; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; }
+  .action-card span { font-size: 11px; color: var(--muted); }
+
+  .section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 12px; }
+
+  .history-item { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .history-item .pts { font-weight: 700; color: var(--success); font-family: 'Syne', sans-serif; }
+  .history-item .pts.neg { color: var(--warning); }
+  .history-item .date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* SCANNER */
+  .scan-area { background: #000; border-radius: 22px; height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; position: relative; overflow: hidden; }
+  .scan-area video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 22px; }
+  .scan-area canvas { display: none; }
+  .scan-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; }
+  .scan-frame { width: 180px; height: 180px; position: relative; }
+  .scan-frame::before, .scan-frame::after { content: ''; position: absolute; width: 40px; height: 40px; border-color: rgba(255,255,255,.9); border-style: solid; }
+  .scan-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .scan-frame::after { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+  .scan-frame-tr, .scan-frame-bl { position: absolute; width: 40px; height: 40px; border-color: rgba(255,255,255,.9); border-style: solid; }
+  .scan-frame-tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .scan-frame-bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .scan-line { position: absolute; left: 10px; right: 10px; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent); animation: scanMove 2s ease-in-out infinite; box-shadow: 0 0 10px rgba(255,255,255,.5); top: 50%; }
+  @keyframes scanMove { 0%,100% { transform: translateY(-70px); opacity:.5; } 50% { transform: translateY(70px); opacity:1; } }
+  .scan-label { color: rgba(255,255,255,.8); font-size: 13px; margin-top: 14px; text-align: center; }
+  .scan-status { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,.7); font-size: 12px; z-index: 3; }
+
+  /* CAMERA PLACEHOLDER (before start) */
+  .cam-placeholder { background: linear-gradient(160deg, var(--blue) 0%, var(--blue-dark) 100%); border-radius: 22px; height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; }
+  .cam-placeholder .icon { font-size: 52px; margin-bottom: 12px; }
+  .cam-placeholder p { color: rgba(255,255,255,.75); font-size: 13px; }
+
+  /* BUTTONS */
+  .btn { display: block; width: 100%; padding: 15px; border-radius: 14px; border: none; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: all .2s; text-align: center; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(16,151,209,.3); }
+  .btn-outline { background: transparent; color: var(--blue); border: 2px solid var(--blue); margin-top: 10px; }
+  .btn-outline:hover { background: var(--blue-pale); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
+
+  /* POPUP */
+  .popup-overlay { position: fixed; inset: 0; background: rgba(10,40,60,.45); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: flex-end; animation: fadeIn .2s; }
+  .popup-overlay.hidden { display: none; }
+  .popup { background: var(--white); border-radius: 28px 28px 0 0; padding: 32px 24px 44px; width: 100%; text-align: center; animation: slideUp .3s ease; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .popup-emoji { font-size: 56px; margin-bottom: 10px; }
+  .popup h2 { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; }
+  .popup p { color: var(--muted); margin-top: 6px; margin-bottom: 18px; font-size: 14px; }
+  .pts-earned { font-family: 'Syne', sans-serif; font-size: 52px; color: var(--blue); font-weight: 800; line-height: 1; }
+  .pts-earned span { font-size: 18px; color: var(--muted); }
+
+  /* MODAL USUARIO */
+  .modal-center { align-items: center; }
+  .modal-box { background: var(--white); border-radius: 28px; padding: 32px 24px; width: calc(100% - 40px); max-width: 360px; text-align: center; animation: slideUp .3s ease; }
+  .modal-box h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+  .modal-box .sub { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+  .field { width: 100%; padding: 13px 16px; border-radius: 12px; border: 1.5px solid var(--border); font-family: 'DM Sans', sans-serif; font-size: 15px; margin-bottom: 10px; outline: none; background: var(--bg); color: var(--text); transition: border-color .2s; }
+  .field:focus { border-color: var(--blue); }
+  .field.error { border-color: var(--warning); }
+  .field-label { font-size: 12px; color: var(--muted); text-align: left; margin-bottom: 4px; margin-top: 2px; font-weight: 500; }
+  .error-msg { font-size: 12px; color: var(--warning); margin-top: -6px; margin-bottom: 10px; text-align: left; display: none; }
+  .error-msg.show { display: block; }
+
+  /* REWARDS */
+  .reward-card { background: var(--card); border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; border: 1.5px solid var(--border); cursor: pointer; transition: all .2s; }
+  .reward-card:hover:not(.locked) { border-color: var(--blue); box-shadow: 0 4px 18px rgba(16,151,209,.14); }
+  .reward-card.locked { opacity: .45; cursor: not-allowed; }
+  .reward-icon { font-size: 34px; flex-shrink: 0; }
+  .reward-info { flex: 1; }
+  .reward-info strong { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; display: block; }
+  .reward-info small { font-size: 12px; color: var(--muted); }
+  .reward-cost strong { font-family: 'Syne', sans-serif; font-size: 16px; color: var(--blue); font-weight: 800; display: block; text-align: right; }
+
+  .tag { display: inline-block; border-radius: 20px; padding: 3px 9px; font-size: 11px; font-weight: 700; margin: 4px 2px 0 0; }
+  .tag-blue { background: var(--blue-pale); color: var(--blue-dark); }
+  .tag-green { background: #D4F7EE; color: #007A5A; }
+  .tag-gold { background: #FEF3C7; color: #92400E; }
+
+  .tip-box { background: var(--blue-bg); border-radius: 14px; padding: 16px; border: 1px solid var(--border); margin-top: 16px; }
+  .tip-box .tip-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 8px; color: var(--blue-dark); }
+  .tip-box p { font-size: 13px; color: var(--text); line-height: 1.9; }
+
+  /* PROFILE */
+  .profile-header { background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%); border-radius: 22px; padding: 28px; color: #fff; text-align: center; margin-bottom: 16px; position: relative; overflow: hidden; }
+  .profile-header::before { content: ''; position: absolute; top: -40px; right: -40px; width: 150px; height: 150px; background: rgba(255,255,255,.08); border-radius: 50%; }
+  .avatar { font-size: 52px; margin-bottom: 8px; }
+  .profile-header h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; }
+  .profile-header p { font-size: 13px; opacity: .75; }
+  .badge-row { display: flex; gap: 8px; margin-top: 12px; justify-content: center; flex-wrap: wrap; }
+  .badge { background: rgba(255,255,255,.18); border-radius: 20px; padding: 4px 12px; font-size: 12px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-box { background: var(--card); border-radius: 14px; padding: 16px 10px; text-align: center; border: 1.5px solid var(--border); }
+  .stat-box strong { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--blue); display: block; }
+  .stat-box span { font-size: 11px; color: var(--muted); }
+  .impact-card { background: var(--card); border-radius: 16px; padding: 16px; border: 1.5px solid var(--border); margin-bottom: 12px; }
+  .impact-card .impact-title { font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 10px; font-size: 14px; }
+  .impact-card p { font-size: 13px; line-height: 2.1; color: var(--muted); }
+
+  /* COUPON */
+  .coupon { background: var(--blue-bg); border: 2px dashed var(--blue-light); border-radius: 16px; padding: 22px; text-align: center; margin: 14px 0; }
+  .coupon .pct { font-family: 'Syne', sans-serif; font-size: 58px; font-weight: 800; color: var(--blue); }
+  .coupon .pct span { font-size: 26px; }
+  .coupon p { font-size: 13px; color: var(--muted); }
+  .coupon .code { font-family: monospace; font-size: 18px; background: #fff; border-radius: 8px; padding: 8px 18px; display: inline-block; margin-top: 10px; letter-spacing: 3px; font-weight: 700; color: var(--blue-dark); border: 1px solid var(--border); }
+
+  /* BOTTOM NAV */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1px solid var(--border); display: flex; padding: 8px 0 14px; z-index: 100; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 6px; border-radius: 12px; transition: all .15s; font-size: 11px; color: var(--muted); }
+  .nav-item.active { color: var(--blue); }
+  .nav-item .nav-icon svg { width: 22px; height: 22px; }
+
+  .spacer { height: 80px; }
+
+  /* LOADING STATE */
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- SUPABASE -->
+<script>
+  const { createClient } = supabase;
+  const sb = createClient(
+    'https://gpbxloqzcezuxmhxhuag.supabase.co',
+    'sb_publishable_L_hHmdeQfTfGMnVwL46Llg_B6piAbrx'
+  );
+  let usuarioActivo = null;
+  let points = 0;
+  let scanActive = false;
+  let videoStream = null;
+  let animFrame = null;
+</script>
+
+<nav>
+  <div class="logo">E-COCO</div>
+  <div class="nav-pts" id="navPts">⭐ 0 pts</div>
+</nav>
+
+<!-- HOME -->
+<div class="screen active" id="screen-home">
+  <div class="hero">
+    <div class="hero-top">
+      <div class="hero-emoji">
+         <img src="fwplain.svg" alt="Descripción de mi icono" width="50" height="50"> 
+      </div>
+      <div class="hero-badge" id="heroBadge">🌱 Nivel Semilla</div>
+    </div>
+    <h1 id="heroNombre">¡Hola!</h1>
+    <p>Cada filtro cuenta. El planeta te lo agradece.</p>
+  </div>
+
+  <div class="points-card">
+    <div>
+      <div class="points-big" id="pointsBig">0</div>
+      <div class="points-label">puntos acumulados</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-info">
+        <span style="color:var(--blue);font-weight:600;" id="nivelLabel">Semilla 🌱</span>
+        <span id="progressText">0/500</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div class="progress-next" id="progressNext">500 pts para nivel Árbol 🌳</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="action-card" onclick="goTo('scan')">
+      <div class="icon">
+         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scan-line-icon lucide-scan-line"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>   </div>
+      <strong>Escanear Filtro</strong>
+      <span>Gana +50 puntos</span>
+    </div>
+    <div class="action-card" onclick="goTo('rewards')">
+      <div class="icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gift-icon lucide-gift"><path d="M12 7v14"/><path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5"/><rect x="3" y="7" width="18" height="4" rx="1"/></svg>
+        </div>
+      <strong>Canjear</strong>
+      <span>Ver recompensas</span>
+    </div>
+  </div>
+
+      <div class="section-title">Actividad reciente</div>
+      <div id="historyList">
+        <div class="history-item" style="justify-content:center;">
+          <span style="color:var(--muted);font-size:13px;">Aún no hay actividad</span>
+        </div>
+      </div>
+      <div style="
+      background: var(--blue-bg);
+      border: 1.5px solid var(--blue-pale);
+      border-left: 4px solid var(--blue);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-top: 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    ">
+      <span style="font-size:22px;flex-shrink:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clock2-icon lucide-clock-2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4-2"/></svg>
+      </span>
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--blue-dark);margin-bottom:3px;">
+          Recordatorio de mantenimiento
+        </div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.6;">
+          Se recomienda reemplazar tu filtro E-COCO cada <strong style="color:var(--text);">3 a 6 meses</strong> según el uso para garantizar agua de la mejor calidad.
+        </p>
+      </div>
+    </div>
+  <div class="spacer"></div>
+</div>
+
+<!-- SCAN -->
+<div class="screen" id="screen-scan">
+  <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:6px;">Entregar Filtro</h2>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Escanea el código QR que aparece en la caja del punto de venta.</p>
+
+  <!-- Placeholder antes de iniciar cámara -->
+  <div class="cam-placeholder" id="camPlaceholder">
+    <div class="icon">
+       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7v-1a2 2 0 0 1 2 -2h2"/><path d="M4 17v1a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v1"/><path d="M16 20h2a2 2 0 0 0 2 -2v-1"/><path d="M5 12l14 0"/></svg>
+    </div>
+    <p>Presiona el botón para activar la cámara</p>
+  </div>
+
+  <!-- Área de escaneo activa -->
+  <div class="scan-area hidden" id="scanArea">
+    <video id="scanVideo" autoplay playsinline muted></video>
+    <canvas id="scanCanvas"></canvas>
+    <div class="scan-overlay">
+      <div class="scan-frame">
+        <div class="scan-frame-tr"></div>
+        <div class="scan-frame-bl"></div>
+        <div class="scan-line"></div>
+      </div>
+      <div class="scan-label">Apunta al QR de la caja</div>
+    </div>
+    <div class="scan-status" id="scanStatus">Buscando código QR...</div>
+  </div>
+
+  <button class="btn btn-primary" id="btnScan" onclick="toggleScan()">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-camera-icon lucide-camera"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg>
+     Activar cámara</button>
+  <button class="btn btn-outline" onclick="stopScanAndGoHome()">Cancelar</button>
+  <div class="spacer"></div>
+</div>
+
+<!-- REWARDS -->
+<div class="screen" id="screen-rewards">
+  <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px;">Recompensas</h2>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Tienes <strong style="color:var(--blue)" id="rewardPtsLabel">0 pts</strong> disponibles</p>
+
+  <div class="reward-card" id="reward300" onclick="claimReward(300,'6% descuento en filtro nuevo','6%')">
+    <div class="reward-icon">💧</div>
+    <div class="reward-info">
+      <strong>6% de descuento</strong>
+      <small>En tu próximo filtro E-COCO</small><br>
+      <span class="tag tag-gold">⭐ Popular</span>
+    </div>
+    <div class="reward-cost"><strong>300 pts</strong></div>
+  </div>
+
+  <div class="reward-card" id="reward500" onclick="claimReward(500,'10% descuento en filtro nuevo','10%')">
+    <div class="reward-icon">🌊</div>
+    <div class="reward-info">
+      <strong>10% de descuento</strong>
+      <small>En tu próximo filtro E-COCO</small><br>
+      <span class="tag tag-blue">500 pts</span>
+    </div>
+    <div class="reward-cost"><strong>500 pts</strong><span style="font-size:16px" id="lock500">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock-keyhole-icon lucide-lock-keyhole"><circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>
+    </span></div>
+  </div>
+
+  <div class="reward-card" id="reward1000" onclick="claimReward(1000,'Filtro completamente gratis','filtro_gratis')">
+    <div class="reward-icon">
+       <img src="fwplain.svg" alt="Descripción de mi icono" width="50" height="50"> 
+    </div>
+    <div class="reward-info">
+      <strong>Filtro gratis</strong>
+      <small>Un filtro completamente gratis</small><br>
+      <span class="tag tag-blue">1000 pts</span>
+    </div>
+    <div class="reward-cost"><strong>1000 pts</strong><span style="font-size:16px" id="lock1000">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock-keyhole-icon lucide-lock-keyhole"><circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>
+    </span></div>
+  </div>
+
+  <div class="tip-box">
+    <div class="tip-title">💡 ¿Cómo ganar más puntos?</div>
+    <p>📦 Entregar filtro usado → +50 pts<br>📅 Entrega continua → ¡sigue acumulando!</p>
+  </div>
+  <div class="spacer"></div>
+</div>
+
+<!-- PROFILE -->
+<div class="screen" id="screen-profile">
+  <div class="profile-header">
+    <div class="avatar">
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-icon lucide-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <h2 id="profileNombre">—</h2>
+    <p id="profileFecha">Miembro E-COCO</p>
+    <div class="badge-row">
+      <div class="badge" id="profileNivel">🌱 Nivel Semilla</div>
+      <div class="badge" id="profileFiltros">0 filtros entregados</div>
+    </div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-box"><strong id="statFiltros">0</strong><span>Filtros entregados</span></div>
+    <div class="stat-box"><strong id="statPuntos">0</strong><span>Puntos actuales</span></div>
+    <div class="stat-box"><strong id="statTotal">0</strong><span>Pts ganados total</span></div>
+  </div>
+  <div class="impact-card">
+    <div class="impact-title">🌍 Tu impacto ambiental</div>
+    <p id="impactText">♻️ 0 litros de agua filtrada por semana<br>🥥 0 cáscaras de coco reutilizadas</p>
+  </div>
+  <button class="btn btn-outline" onclick="cerrarSesion()">Cerrar sesión</button>
+  <div class="spacer"></div>
+</div>
+
+<!-- POPUP: SCAN SUCCESS -->
+<div class="popup-overlay hidden" id="popup">
+  <div class="popup">
+    <div class="popup-emoji" id="popupEmoji">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-party-popper-icon lucide-party-popper"><path d="M5.8 11.3 2 22l10.7-3.79"/><path d="M4 3h.01"/><path d="M22 8h.01"/><path d="M15 2h.01"/><path d="M22 20h.01"/><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"/><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.7-.72 1.22-1.43 1.22H17"/><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.52 4.9 9 5.52 9 6.23V7"/><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z"/></svg>
+    </div>
+    <h2 id="popupTitle">¡Filtro registrado!</h2>
+    <p id="popupSub">Gracias por cuidar el planeta</p>
+    <div class="pts-earned" id="popupPts">+50 <span>puntos</span></div>
+    <br><br>
+    <button class="btn btn-primary" onclick="closePopup()">¡Genial! Ver mis puntos</button>
+  </div>
+</div>
+
+<!-- POPUP: COUPON -->
+<div class="popup-overlay hidden" id="couponPopup">
+  <div class="popup">
+    <div class="popup-emoji">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-icon lucide-check"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <h2>¡Canje exitoso!</h2>
+    <p id="couponDesc">Tu recompensa está lista</p>
+    <div class="coupon">
+      <div class="pct" id="couponPct">6<span>%</span></div>
+      <p id="couponSubtitle">descuento en tu próximo filtro</p>
+      <div class="code" id="couponCode">ECO-XXXX</div>
+    </div>
+    <p style="font-size:12px;color:var(--muted);">Presenta este código al recoger tu filtro. Válido 30 días.</p>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="closeCoupon()">Listo</button>
+  </div>
+</div>
+
+<!-- MODAL: REGISTRO USUARIO -->
+<div class="popup-overlay hidden modal-center" id="modalUsuario">
+  <div class="modal-box">
+    <div style="font-size:48px;margin-bottom:10px;">🥥</div>
+    <h2>¡Bienvenido a E-COCO!</h2>
+    <p class="sub">Ingresa tu teléfono para acumular puntos</p>
+
+    <div class="field-label">Número de teléfono</div>
+    <input id="inputTel" class="field" type="tel" maxlength="10" placeholder="10 dígitos" inputmode="numeric">
+    <div class="error-msg" id="errTel">Ingresa un número de 10 dígitos</div>
+
+    <div id="campoNombreWrap" class="hidden">
+      <div class="field-label">Tu nombre</div>
+      <input id="inputNombre" class="field" type="text" placeholder="¿Cómo te llamas?">
+      <div class="error-msg" id="errNombre">Ingresa tu nombre</div>
+    </div>
+
+    <button class="btn btn-primary" id="btnSubmitUsuario" onclick="submitUsuario()" style="margin-top:8px;">Continuar →</button>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-home" onclick="goTo('home')">
+    <div class="nav-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l-2 0l9 -9l9 9l-2 0"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>
+    </div>Inicio
+  </div>
+  <div class="nav-item" id="nav-scan" onclick="goTo('scan')">
+    <div class="nav-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7v-1a2 2 0 0 1 2 -2h2"/><path d="M4 17v1a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v1"/><path d="M16 20h2a2 2 0 0 0 2 -2v-1"/><path d="M5 12l14 0"/></svg>
+    </div>Escanear
+  </div>
+  <div class="nav-item" id="nav-rewards" onclick="goTo('rewards')">
+    <div class="nav-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 9a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1l0 -2"/><path d="M12 8l0 13"/><path d="M19 12v7a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0 -5a4.8 8 0 0 1 4.5 5a4.8 8 0 0 1 4.5 -5a2.5 2.5 0 0 1 0 5"/></svg>
+    </div>Premios
+  </div>
+  <div class="nav-item" id="nav-profile" onclick="goTo('profile')">
+    <div class="nav-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"/><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/></svg>
+    </div>Perfil
+  </div>
+</div>
+
+<script>
+// ── NAVEGACIÓN ───────────────────────────────────────────
+function goTo(screen) {
+  if (screen !== 'scan') stopCamera();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + screen);
+  if (navEl) navEl.classList.add('active');
+  if (screen === 'rewards') updateRewardsUI();
+  if (screen === 'profile') updateProfileUI();
+}
+
+// ── ACTUALIZAR UI ────────────────────────────────────────
+function getNivel(pts) {
+  if (pts >= 1000) return { nombre: 'Bosque 🌲', next: null, nextPts: 1000 };
+  if (pts >= 500)  return { nombre: 'Árbol 🌳', next: 'Bosque 🌲', nextPts: 1000 };
+  return { nombre: 'Semilla 🌱', next: 'Árbol 🌳', nextPts: 500 };
+}
+
+function updatePoints() {
+  const nivel = getNivel(points);
+  document.getElementById('navPts').textContent = '⭐ ' + points + ' pts';
+  document.getElementById('pointsBig').textContent = points;
+  document.getElementById('heroNombre').textContent = '¡Hola, ' + (usuarioActivo?.nombre || '') + '!';
+  document.getElementById('heroBadge').textContent = nivel.nombre;
+  document.getElementById('nivelLabel').textContent = nivel.nombre;
+
+  if (nivel.next) {
+    const fill = Math.min((points / nivel.nextPts) * 100, 100);
+    document.getElementById('progressFill').style.width = fill + '%';
+    document.getElementById('progressText').textContent = points + '/' + nivel.nextPts;
+    document.getElementById('progressNext').textContent = (nivel.nextPts - points) + ' pts para nivel ' + nivel.next;
+  } else {
+    document.getElementById('progressFill').style.width = '100%';
+    document.getElementById('progressText').textContent = '¡Nivel máximo!';
+    document.getElementById('progressNext').textContent = '🎉 ¡Eres un héroe del planeta!';
+  }
+}
+
+function updateRewardsUI() {
+  document.getElementById('rewardPtsLabel').textContent = points + ' pts';
+  document.getElementById('reward300').classList.toggle('locked', points < 300);
+  document.getElementById('reward500').classList.toggle('locked', points < 500);
+  document.getElementById('reward1000').classList.toggle('locked', points < 1000);
+  document.getElementById('lock500').classList.toggle('hidden', points >= 500);
+  document.getElementById('lock1000').classList.toggle('hidden', points >= 1000);
+}
+
+async function updateProfileUI() {
+  if (!usuarioActivo) return;
+  document.getElementById('profileNombre').textContent = usuarioActivo.nombre;
+  document.getElementById('profileFecha').textContent = 'Miembro E-COCO · ' + usuarioActivo.telefono;
+
+  const nivel = getNivel(points);
+  document.getElementById('profileNivel').textContent = nivel.nombre;
+
+  // Contar filtros entregados
+  const { count } = await sb.from('escaneos').select('*', { count: 'exact', head: true }).eq('usuario_id', usuarioActivo.id);
+  const filtros = count || 0;
+
+  document.getElementById('profileFiltros').textContent = filtros + ' filtros entregados';
+  document.getElementById('statFiltros').textContent = filtros;
+  document.getElementById('statPuntos').textContent = points;
+  document.getElementById('statTotal').textContent = filtros * 50;
+  const cáscaras = filtros * 6;
+  const litros = filtros * 2400;
+  document.getElementById('impactText').innerHTML =
+    '♻️ ' + filtros + ' filtros reciclados<br>' +
+    '🥥 ' + cáscaras + ' cáscaras de coco aprovechadas<br>' +
+    '💧 ~' + litros.toLocaleString('es-MX') + 'L de agua limpia generados<br><br>' +
+    '<span style="color:var(--blue);font-weight:600;">Gracias a ti, tu familia cuenta con agua limpia, confiable y de calidad. 💙</span>';
+}
+
+async function loadHistory() {
+  if (!usuarioActivo) return;
+  const { data } = await sb
+    .from('escaneos')
+    .select('puntos_ganados, escaneado_en, punto_venta')
+    .eq('usuario_id', usuarioActivo.id)
+    .order('escaneado_en', { ascending: false })
+    .limit(5);
+
+  const { data: canjes } = await sb
+    .from('canjes')
+    .select('tipo, puntos_usados, creado_en')
+    .eq('usuario_id', usuarioActivo.id)
+    .order('creado_en', { ascending: false })
+    .limit(3);
+
+  const lista = document.getElementById('historyList');
+  if ((!data || data.length === 0) && (!canjes || canjes.length === 0)) {
+    lista.innerHTML = '<div class="history-item" style="justify-content:center;"><span style="color:var(--muted);font-size:13px;">Aún no hay actividad</span></div>';
+    return;
+  }
+
+  // Combinar y ordenar
+  const items = [
+    ...(data || []).map(e => ({ tipo: 'escaneo', pts: e.puntos_ganados, fecha: e.escaneado_en, lugar: e.punto_venta })),
+    ...(canjes || []).map(c => ({ tipo: 'canje', pts: -c.puntos_usados, desc: c.tipo, fecha: c.creado_en }))
+  ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 6);
+
+  lista.innerHTML = items.map(item => {
+    const fecha = new Date(item.fecha);
+    const fechaStr = fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+    if (item.tipo === 'escaneo') {
+      return `<div class="history-item"><div><div>Filtro entregado${item.lugar ? ' · ' + item.lugar : ''}</div><div class="date">${fechaStr}</div></div><div class="pts">+${item.pts} pts</div></div>`;
+    } else {
+      return `<div class="history-item"><div><div>Descuento ${item.desc} canjeado</div><div class="date">${fechaStr}</div></div><div class="pts neg">−${Math.abs(item.pts)} pts</div></div>`;
+    }
+  }).join('');
+}
+
+// ── MODAL USUARIO ────────────────────────────────────────
+let resolveUsuario = null;
+
+function pedirUsuario() {
+  return new Promise((resolve) => {
+    resolveUsuario = resolve;
+    document.getElementById('inputTel').value = '';
+    document.getElementById('inputNombre').value = '';
+    document.getElementById('campoNombreWrap').classList.add('hidden');
+    document.getElementById('errTel').classList.remove('show');
+    document.getElementById('errNombre').classList.remove('show');
+    document.getElementById('inputTel').classList.remove('error');
+    document.getElementById('inputNombre').classList.remove('error');
+    document.getElementById('modalUsuario').classList.remove('hidden');
+    setTimeout(() => document.getElementById('inputTel').focus(), 300);
+  });
+}
+
+async function submitUsuario() {
+  const btn = document.getElementById('btnSubmitUsuario');
+  const tel = document.getElementById('inputTel').value.trim();
+
+  if (tel.length < 10) {
+    document.getElementById('inputTel').classList.add('error');
+    document.getElementById('errTel').classList.add('show');
+    return;
+  }
+  document.getElementById('inputTel').classList.remove('error');
+  document.getElementById('errTel').classList.remove('show');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Buscando...';
+
+  // Buscar si ya existe
+  const { data: existe } = await sb.from('usuarios').select('*').eq('telefono', tel).single();
+
+  if (existe) {
+    document.getElementById('modalUsuario').classList.add('hidden');
+    usuarioActivo = existe;
+    points = existe.puntos;
+    updatePoints();
+    loadHistory();
+    btn.disabled = false;
+    btn.textContent = 'Continuar →';
+    resolveUsuario(existe);
+    return;
+  }
+
+  // Primera vez — mostrar campo nombre
+  const campoNombre = document.getElementById('campoNombreWrap');
+  if (campoNombre.classList.contains('hidden')) {
+    campoNombre.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Registrarme →';
+    setTimeout(() => document.getElementById('inputNombre').focus(), 100);
+    return;
+  }
+
+  const nombre = document.getElementById('inputNombre').value.trim();
+  if (!nombre) {
+    document.getElementById('inputNombre').classList.add('error');
+    document.getElementById('errNombre').classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Registrarme →';
+    return;
+  }
+
+  btn.innerHTML = '<span class="spinner"></span>Registrando...';
+
+  const { data: nuevo, error } = await sb
+    .from('usuarios')
+    .insert({ nombre, telefono: tel, puntos: 0 })
+    .select().single();
+
+  btn.disabled = false;
+  btn.textContent = 'Continuar →';
+
+  if (error) { alert('Error al registrar. Intenta de nuevo.'); return; }
+
+  document.getElementById('modalUsuario').classList.add('hidden');
+  usuarioActivo = nuevo;
+  points = 0;
+  updatePoints();
+  resolveUsuario(nuevo);
+}
+
+async function obtenerOCrearUsuario() {
+  if (usuarioActivo) return usuarioActivo;
+  return await pedirUsuario();
+}
+
+// ── ESCÁNER QR ───────────────────────────────────────────
+async function toggleScan() {
+  if (scanActive) {
+    stopCamera();
+  } else {
+    await startCamera();
+  }
+}
+
+async function startCamera() {
+  const btn = document.getElementById('btnScan');
+  btn.disabled = true;
+  btn.textContent = 'Iniciando cámara...';
+
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+
+    const video = document.getElementById('scanVideo');
+    video.srcObject = videoStream;
+    await video.play();
+
+    document.getElementById('camPlaceholder').classList.add('hidden');
+    document.getElementById('scanArea').classList.remove('hidden');
+    scanActive = true;
+    btn.disabled = false;
+    btn.textContent = '⏹ Detener cámara';
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-outline');
+
+    scanLoop();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '📷 Activar cámara';
+    if (err.name === 'NotAllowedError') {
+      alert('Permiso de cámara denegado. Permite el acceso en tu navegador e intenta de nuevo.');
+    } else {
+      alert('No se pudo acceder a la cámara: ' + err.message);
+    }
+  }
+}
+
+function stopCamera() {
+  if (videoStream) {
+    videoStream.getTracks().forEach(t => t.stop());
+    videoStream = null;
+  }
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  scanActive = false;
+  document.getElementById('scanArea').classList.add('hidden');
+  document.getElementById('camPlaceholder').classList.remove('hidden');
+  const btn = document.getElementById('btnScan');
+  btn.textContent = '📷 Activar cámara';
+  btn.classList.add('btn-primary');
+  btn.classList.remove('btn-outline');
+  btn.disabled = false;
+}
+
+function stopScanAndGoHome() {
+  stopCamera();
+  goTo('home');
+}
+
+function scanLoop() {
+  if (!scanActive) return;
+  const video = document.getElementById('scanVideo');
+  const canvas = document.getElementById('scanCanvas');
+
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+
+    if (code) {
+      document.getElementById('scanStatus').textContent = '✅ QR detectado!';
+      stopCamera();
+      procesarQR(code.data);
+      return;
+    }
+  }
+  animFrame = requestAnimationFrame(scanLoop);
+}
+
+async function procesarQR(qrCode) {
+  const usuario = await obtenerOCrearUsuario();
+  if (!usuario) { goTo('home'); return; }
+
+  // Verificar que el QR existe en escaneos y no ha sido reclamado
+  const { data: escaneo, error: errBuscar } = await sb
+    .from('escaneos')
+    .select('id, usuario_id, puntos_ganados')
+    .eq('qr_code', qrCode)
+    .single();
+
+  if (errBuscar || !escaneo) {
+    mostrarError('QR no válido', 'Este código no fue generado por una caja E-COCO o ya expiró.');
+    return;
+  }
+
+  if (escaneo.usuario_id !== null) {
+    mostrarError('Ya reclamado', 'Este filtro ya fue registrado por otro usuario.');
+    return;
+  }
+
+  // Reclamar: asignar usuario_id al escaneo
+  const { error: errUpdate } = await sb
+    .from('escaneos')
+    .update({ usuario_id: usuario.id })
+    .eq('id', escaneo.id);
+
+  if (errUpdate) { alert('Error al registrar. Intenta de nuevo.'); return; }
+
+  // Sumar puntos
+  const pts = escaneo.puntos_ganados || 50;
+  const nuevosPuntos = usuario.puntos + pts;
+  await sb.from('usuarios').update({ puntos: nuevosPuntos }).eq('id', usuario.id);
+  usuarioActivo.puntos = nuevosPuntos;
+  points = nuevosPuntos;
+  updatePoints();
+  loadHistory();
+
+  // Popup éxito
+  document.getElementById('popupEmoji').textContent = '🎉';
+  document.getElementById('popupTitle').textContent = '¡Filtro registrado!';
+  document.getElementById('popupSub').textContent = 'Gracias por cuidar el planeta, ' + usuario.nombre;
+  document.getElementById('popupPts').innerHTML = '+' + pts + ' <span>puntos</span>';
+  document.getElementById('popup').classList.remove('hidden');
+}
+
+function mostrarError(titulo, msg) {
+  document.getElementById('popupEmoji').textContent = '❌';
+  document.getElementById('popupTitle').textContent = titulo;
+  document.getElementById('popupSub').textContent = msg;
+  document.getElementById('popupPts').innerHTML = '';
+  document.getElementById('popup').classList.remove('hidden');
+}
+
+function closePopup() {
+  document.getElementById('popup').classList.add('hidden');
+  goTo('home');
+}
+
+// ── CANJES ───────────────────────────────────────────────
+async function claimReward(cost, desc, tipo) {
+  const usuario = await obtenerOCrearUsuario();
+  if (!usuario) return;
+  if (points < cost) return;
+
+  const cupon = 'ECO-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+
+  const { error } = await sb.from('canjes').insert({
+    usuario_id: usuario.id,
+    tipo,
+    puntos_usados: cost,
+    codigo_cupon: cupon
+  });
+
+  if (error) { alert('Error al generar cupón. Intenta de nuevo.'); return; }
+
+  const nuevosPuntos = points - cost;
+  await sb.from('usuarios').update({ puntos: nuevosPuntos }).eq('id', usuario.id);
+  usuarioActivo.puntos = nuevosPuntos;
+  points = nuevosPuntos;
+  updatePoints();
+
+  // Mostrar cupón
+  if (tipo === 'filtro_gratis') {
+    document.getElementById('couponPct').innerHTML = '🥥';
+    document.getElementById('couponSubtitle').textContent = 'Filtro gratis en tu próximo pedido';
+  } else {
+    document.getElementById('couponPct').innerHTML = tipo.replace('%', '<span>%</span>');
+    document.getElementById('couponSubtitle').textContent = 'descuento en tu próximo filtro';
+  }
+  document.getElementById('couponCode').textContent = cupon;
+  document.getElementById('couponDesc').textContent = desc;
+  document.getElementById('couponPopup').classList.remove('hidden');
+}
+
+function closeCoupon() {
+  document.getElementById('couponPopup').classList.add('hidden');
+  goTo('home');
+}
+
+// ── SESIÓN ───────────────────────────────────────────────
+function cerrarSesion() {
+  usuarioActivo = null;
+  points = 0;
+  updatePoints();
+  document.getElementById('historyList').innerHTML = '<div class="history-item" style="justify-content:center;"><span style="color:var(--muted);font-size:13px;">Aún no hay actividad</span></div>';
+  goTo('home');
+}
+
+// Permitir Enter en inputs del modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('modalUsuario').classList.contains('hidden')) {
+    submitUsuario();
+  }
+});
+</script>
+</body>
+</html>
